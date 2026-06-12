@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Debt Hunter · Build Your Own Debt Hunt</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Debt Hunter · Login & Hunt Your Debts</title>
   <style>
     * {
       box-sizing: border-box;
@@ -15,11 +15,61 @@
       margin: 0;
       padding: 20px;
       color: #f0f3fa;
+      min-height: 100vh;
+    }
+
+    /* Login / Signup container */
+    .auth-container {
+      max-width: 450px;
+      margin: 10vh auto;
+      background: #101624cc;
+      backdrop-filter: blur(10px);
+      border-radius: 2rem;
+      padding: 2rem;
+      border: 1px solid #ffaa44;
+      box-shadow: 0 0 30px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+
+    .auth-container h2 {
+      margin-bottom: 1.5rem;
+    }
+
+    .auth-container input {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 2rem;
+      border: 1px solid #5f7f9e;
+      background: #0a1022;
+      color: white;
+    }
+
+    .auth-container button {
+      width: 100%;
+      margin-top: 12px;
+      background: #b86f2c;
+      padding: 12px;
+      font-size: 1rem;
+    }
+
+    .auth-toggle {
+      margin-top: 1rem;
+      color: #ffaa77;
+      cursor: pointer;
+      text-decoration: underline;
     }
 
     .game-container {
       max-width: 1400px;
       margin: 0 auto;
+      display: none; /* hidden until logged in */
+    }
+
+    .logout-bar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 1rem;
     }
 
     .hero-stats {
@@ -251,8 +301,25 @@
   </style>
 </head>
 <body>
-<div class="game-container">
-  <!-- HERO STATS -->
+
+<!-- LOGIN / SIGNUP SCREEN -->
+<div id="authScreen" class="auth-container">
+  <h2>🏹 DEBT HUNTER</h2>
+  <p>Sign in to hunt your debts</p>
+  <input type="text" id="loginUsername" placeholder="Username">
+  <input type="password" id="loginPassword" placeholder="Password">
+  <button id="loginBtn">LOGIN</button>
+  <div class="auth-toggle" id="showSignup">Don't have an account? Sign up</div>
+  <div id="authError" style="color: #ff8866; margin-top: 10px; font-size: 0.8rem;"></div>
+</div>
+
+<!-- MAIN GAME (hidden until login) -->
+<div id="gameContainer" class="game-container">
+  <div class="logout-bar">
+    <span id="currentUserDisplay" style="margin-right: auto; background:#2a2f4b; padding: 4px 12px; border-radius: 2rem;">User: </span>
+    <button id="logoutBtn" style="background:#691c1c;">🚪 LOGOUT</button>
+  </div>
+
   <div class="hero-stats">
     <div class="stat-card"><span class="stat-label">🏹 DEBT HUNTER</span><span class="stat-value" id="playerLevel">1</span></div>
     <div class="stat-card"><span class="stat-label">❤️ TOTAL DEBT HP</span><span class="stat-value" id="totalHp">₹0</span></div>
@@ -261,7 +328,6 @@
     <div class="stat-card"><span class="stat-label">🎲 INITIATIVE</span><span class="stat-value" id="initiativeMult">1.00x</span></div>
   </div>
 
-  <!-- STRATEGY + ADD DEBT -->
   <div class="strategy-panel">
     <div class="motivation-badge">⚔️ HUNTING STRATEGY ⚔️</div>
     <div class="strategy-buttons" id="strategyButtons">
@@ -282,13 +348,11 @@
     <button id="resetAllBtn" style="background:#691c1c;">🔥 RESET ALL (clear everything)</button>
   </div>
 
-  <!-- BOSS ARENA (Debts to Hunt) - EMPTY BY DEFAULT -->
   <h2>💀 THE DEBT MENACE</h2>
   <div id="bossListContainer" class="boss-grid">
     <div class="empty-state">🏹 No debts tracked yet.<br>Use "ADD NEW PREY" above to start hunting your debts.</div>
   </div>
 
-  <!-- HUNTER'S WAR CHEST (wallet) with custom add -->
   <div class="spell-panel">
     <div class="wallet-section">
       <span>💰 HUNTER'S WAR CHEST</span>
@@ -302,7 +366,6 @@
     <button id="rollInitiativeBtn">🎲 ROLL INITIATIVE (weekly buff)</button>
   </div>
 
-  <!-- HUNTER'S TOOLS - EMPTY CUSTOM SIDE QUESTS -->
   <div class="custom-sidequest-panel">
     <span>✨ HUNTER'S TOOLS (custom side quests)</span>
     <button id="addCustomQuestBtn" class="primary">➕ ADD CUSTOM SIDE QUEST</button>
@@ -318,26 +381,189 @@
 </div>
 
 <script>
-  // ---------- EMPTY INITIAL STATE ----------
-  let bosses = [];               // No pre-entered debts
-  let customQuests = [];        // { id, name, reward }
+  // ---------- AUTH SYSTEM (localStorage based) ----------
+  // users: { "username": { passwordHash, gameData } }
+  function simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return hash.toString();
+  }
+
+  let currentUser = null;
+
+  function loadUsers() {
+    const raw = localStorage.getItem("debtHunter_users");
+    if (raw) return JSON.parse(raw);
+    return {};
+  }
+
+  function saveUsers(users) {
+    localStorage.setItem("debtHunter_users", JSON.stringify(users));
+  }
+
+  // Game data templates (empty)
+  function getEmptyGameState() {
+    return {
+      bosses: [],
+      customQuests: [],
+      nextBossId: 1,
+      nextQuestId: 1,
+      player: {
+        savings: 0,
+        wallet: 0,
+        totalPaidOff: 0,
+        initiativeMultiplier: 1.0,
+        initiativeRolledThisWeek: false,
+        spellsUsed: {},
+        scavengeUsed: false,
+        paycheckCollected: false,
+        level: 1,
+        activeStrategy: "snowball"
+      }
+    };
+  }
+
+  function saveGameForUser(username, gameState) {
+    const users = loadUsers();
+    if (users[username]) {
+      users[username].gameData = gameState;
+      saveUsers(users);
+    }
+  }
+
+  function loadGameForUser(username) {
+    const users = loadUsers();
+    if (users[username] && users[username].gameData) {
+      return users[username].gameData;
+    }
+    return null;
+  }
+
+  // Login / Signup UI
+  const authScreen = document.getElementById("authScreen");
+  const gameContainer = document.getElementById("gameContainer");
+  const authError = document.getElementById("authError");
+
+  function showAuth() {
+    authScreen.style.display = "block";
+    gameContainer.style.display = "none";
+  }
+
+  function showGame() {
+    authScreen.style.display = "none";
+    gameContainer.style.display = "block";
+  }
+
+  function login(username, password) {
+    const users = loadUsers();
+    const hash = simpleHash(password);
+    if (users[username] && users[username].passwordHash === hash) {
+      currentUser = username;
+      // load game data
+      const savedGame = loadGameForUser(username);
+      if (savedGame) {
+        restoreGameState(savedGame);
+      } else {
+        // fresh empty state
+        resetToEmptyState();
+      }
+      document.getElementById("currentUserDisplay").innerText = `User: ${username}`;
+      showGame();
+      updateUI(); // from game logic
+      return true;
+    } else {
+      authError.innerText = "Invalid username or password";
+      return false;
+    }
+  }
+
+  function signup(username, password) {
+    const users = loadUsers();
+    if (users[username]) {
+      authError.innerText = "Username already exists";
+      return false;
+    }
+    if (username.length < 3 || password.length < 3) {
+      authError.innerText = "Username/password must be at least 3 characters";
+      return false;
+    }
+    users[username] = {
+      passwordHash: simpleHash(password),
+      gameData: getEmptyGameState()
+    };
+    saveUsers(users);
+    // auto login after signup
+    currentUser = username;
+    restoreGameState(getEmptyGameState());
+    document.getElementById("currentUserDisplay").innerText = `User: ${username}`;
+    showGame();
+    updateUI();
+    return true;
+  }
+
+  function logout() {
+    // save current state before logout
+    if (currentUser) {
+      const gameState = captureGameState();
+      saveGameForUser(currentUser, gameState);
+    }
+    currentUser = null;
+    showAuth();
+    authError.innerText = "";
+    document.getElementById("loginUsername").value = "";
+    document.getElementById("loginPassword").value = "";
+  }
+
+  // Global game variables (will be replaced by loaded/saved state)
+  let bosses = [];
+  let customQuests = [];
   let nextBossId = 1;
   let nextQuestId = 1;
+  let player = {};
 
-  let player = {
-    savings: 0,
-    wallet: 0,                  // starts empty
-    totalPaidOff: 0,
-    initiativeMultiplier: 1.0,
-    initiativeRolledThisWeek: false,
-    spellsUsed: {},             // dynamic: key = questId
-    scavengeUsed: false,
-    paycheckCollected: false,
-    level: 1,
-    activeStrategy: "snowball"
-  };
+  function captureGameState() {
+    return {
+      bosses: bosses.map(b => ({ ...b, emiPlan: b.emiPlan ? { ...b.emiPlan } : null })),
+      customQuests: [...customQuests],
+      nextBossId,
+      nextQuestId,
+      player: { ...player, spellsUsed: { ...player.spellsUsed } }
+    };
+  }
 
-  // Helper functions
+  function restoreGameState(state) {
+    bosses = state.bosses.map(b => ({ ...b, emiPlan: b.emiPlan ? { ...b.emiPlan } : null }));
+    customQuests = [...state.customQuests];
+    nextBossId = state.nextBossId;
+    nextQuestId = state.nextQuestId;
+    player = { ...state.player, spellsUsed: { ...state.player.spellsUsed } };
+    if (!player.spellsUsed) player.spellsUsed = {};
+    if (player.activeStrategy === undefined) player.activeStrategy = "snowball";
+  }
+
+  function resetToEmptyState() {
+    bosses = [];
+    customQuests = [];
+    nextBossId = 1;
+    nextQuestId = 1;
+    player = {
+      savings: 0,
+      wallet: 0,
+      totalPaidOff: 0,
+      initiativeMultiplier: 1.0,
+      initiativeRolledThisWeek: false,
+      spellsUsed: {},
+      scavengeUsed: false,
+      paycheckCollected: false,
+      level: 1,
+      activeStrategy: "snowball"
+    };
+  }
+
+  // ---------- GAME LOGIC (identical to previous, but uses global variables) ----------
   function totalRemainingDebt() {
     return bosses.reduce((sum, b) => sum + (b.defeated ? 0 : b.balance), 0);
   }
@@ -379,7 +605,6 @@
     setTimeout(() => div.remove(), 2200);
   }
 
-  // Payment methods
   function makePartialPayment(boss, amount) {
     if (amount <= 0) return false;
     if (amount > player.wallet) { showFloatyMsg("Not enough War Chest", true); return false; }
@@ -424,7 +649,7 @@
     }
     showFloatyMsg(`🎉 FULL SETTLEMENT! ${boss.name} cleared. Bonus +₹300`);
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
   function setupEMI(boss) {
@@ -434,7 +659,7 @@
     boss.emiPlan = { weeklyAmount: emiAmount };
     showFloatyMsg(`📅 EMI plan set: ₹${emiAmount}/week will auto-pay ${boss.name}`);
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
   function processEMIPayments() {
@@ -464,7 +689,6 @@
     updateUI();
   }
 
-  // Custom debt addition
   function addCustomDebt() {
     let name = document.getElementById("debtName").value.trim();
     if (!name) name = "Custom Debt";
@@ -486,10 +710,9 @@
     });
     showFloatyMsg(`➕ New debt "${name}" (₹${principal}, ${apr}% APR) added!`);
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
-  // Custom Side Quest
   function addCustomQuest() {
     let qname = prompt("Side quest name:", "Sell old laptop");
     if (!qname) return;
@@ -497,12 +720,11 @@
     if (isNaN(reward) || reward <= 0) return;
     let qid = "quest_" + (nextQuestId++);
     customQuests.push({ id: qid, name: qname, reward: reward });
-    // Initialize usage tracker for this quest if not exists
     if (!player.spellsUsed) player.spellsUsed = {};
     player.spellsUsed[qid] = false;
     showFloatyMsg(`✨ New side quest added: "${qname}" (+₹${reward})`);
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
   function useCustomQuest(questId) {
@@ -516,10 +738,9 @@
     player.spellsUsed[questId] = true;
     alert(`✨ Completed: ${quest.name}! +₹${quest.reward} added to War Chest.`);
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
-  // End week: interest + EMI + reset custom quest usage
   function endWeek() {
     let armorPct = getArmorReductionPercent();
     let totalInterest = 0;
@@ -535,7 +756,6 @@
     }
     processEMIPayments();
 
-    // Reset weekly flags for spells
     if (player.spellsUsed) {
       Object.keys(player.spellsUsed).forEach(key => { player.spellsUsed[key] = false; });
     }
@@ -546,7 +766,7 @@
 
     alert(`⚡ WEEK ENDED.\nInterest added: ₹${totalInterest.toFixed(2)} (armor reduced ${armorPct}%)\nEMI auto-payments processed.\nAll side quests & initiative reset.`);
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
   function rollInitiative() {
@@ -557,7 +777,7 @@
     player.initiativeRolledThisWeek = true;
     alert(`🎲 Initiative roll: ${roll} → ${mult}x damage this week!`);
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
   function getPaycheck() {
@@ -566,7 +786,7 @@
     player.paycheckCollected = true;
     alert("💵 +₹4000 credited to War Chest.");
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
   function scavenge() {
@@ -576,7 +796,7 @@
     player.scavengeUsed = true;
     alert(`🔍 Scavenged ₹${found}!`);
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
   function addCustomFunds() {
@@ -585,7 +805,7 @@
     player.wallet += amt;
     alert(`💸 ₹${amt} added to War Chest.`);
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
   function saveToArmor() {
@@ -596,7 +816,7 @@
     player.savings += amt;
     alert(`🛡️ ₹${amt} moved to savings. Armor now reduces interest by ${getArmorReductionPercent()}%.`);
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
   function withdrawFromArmor() {
@@ -607,10 +827,9 @@
     player.wallet += amt;
     alert(`⚔️ ₹${amt} withdrawn to War Chest.`);
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
-  // Full reset: clear everything
   function fullReset() {
     bosses = [];
     customQuests = [];
@@ -629,11 +848,18 @@
       activeStrategy: player.activeStrategy || "snowball"
     };
     updateUI();
-    saveGame();
+    saveCurrentGame();
     showFloatyMsg("🔥 COMPLETE RESET: All debts, side quests, and funds cleared.");
   }
 
-  // UI rendering (empty states)
+  function saveCurrentGame() {
+    if (currentUser) {
+      const gameState = captureGameState();
+      saveGameForUser(currentUser, gameState);
+    }
+  }
+
+  // UI rendering
   function updateUI() {
     document.getElementById("totalHp").innerText = "₹" + totalRemainingDebt().toFixed(2);
     document.getElementById("totalPaid").innerText = "₹" + player.totalPaidOff.toFixed(2);
@@ -686,7 +912,6 @@
         container.appendChild(card);
       });
 
-      // rebind dynamic buttons
       document.querySelectorAll(".settle-full-btn").forEach(btn => {
         btn.onclick = () => { let b = bosses.find(b => b.id === btn.dataset.id); if(b) singleSettlement(b); };
       });
@@ -703,12 +928,11 @@
           else showFloatyMsg("Enter valid amount", true);
           input.value = "0";
           updateUI();
-          saveGame();
+          saveCurrentGame();
         };
       });
     }
 
-    // Render custom side quests
     const questsContainer = document.getElementById("customQuestsContainer");
     questsContainer.innerHTML = "";
     if (customQuests.length === 0) {
@@ -732,35 +956,11 @@
     ["stratSnowball","stratAvalanche","stratHybrid"].forEach(s => document.getElementById(s).classList.remove("active-strat"));
     document.getElementById(`strat${strat.charAt(0).toUpperCase()+strat.slice(1)}`).classList.add("active-strat");
     updateUI();
-    saveGame();
+    saveCurrentGame();
   }
 
-  function saveGame() {
-    const save = {
-      bosses: bosses.map(b => ({ ...b, emiPlan: b.emiPlan ? { ...b.emiPlan } : null })),
-      customQuests,
-      player: { ...player, spellsUsed: { ...player.spellsUsed } },
-      nextBossId, nextQuestId
-    };
-    localStorage.setItem("debtHunterEmpty", JSON.stringify(save));
-  }
-
-  function loadGame() {
-    const raw = localStorage.getItem("debtHunterEmpty");
-    if (!raw) return false;
-    try {
-      const data = JSON.parse(raw);
-      bosses = data.bosses.map(b => ({ ...b, emiPlan: b.emiPlan ? { ...b.emiPlan } : null }));
-      customQuests = data.customQuests || [];
-      player = { ...data.player, spellsUsed: data.player.spellsUsed || {} };
-      nextBossId = data.nextBossId || 1;
-      nextQuestId = data.nextQuestId || 1;
-      if (!player.spellsUsed) player.spellsUsed = {};
-      return true;
-    } catch(e) { return false; }
-  }
-
-  function bindEvents() {
+  // Event binding
+  function bindGameEvents() {
     document.getElementById("receivePaycheckBtn").onclick = getPaycheck;
     document.getElementById("scavengeBtn").onclick = scavenge;
     document.getElementById("addCustomFundsBtn").onclick = addCustomFunds;
@@ -774,25 +974,25 @@
     document.getElementById("stratSnowball").onclick = () => setStrategy("snowball");
     document.getElementById("stratAvalanche").onclick = () => setStrategy("avalanche");
     document.getElementById("stratHybrid").onclick = () => setStrategy("hybrid");
+    document.getElementById("logoutBtn").onclick = logout;
   }
 
-  function init() {
-    if (!loadGame()) {
-      // fresh start with absolutely nothing
-      bosses = [];
-      customQuests = [];
-      player = {
-        savings: 0, wallet: 0, totalPaidOff: 0, initiativeMultiplier: 1.0,
-        initiativeRolledThisWeek: false, spellsUsed: {}, scavengeUsed: false,
-        paycheckCollected: false, level: 1, activeStrategy: "snowball"
-      };
-      nextBossId = 1; nextQuestId = 1;
-    }
-    bindEvents();
-    setStrategy(player.activeStrategy);
-    updateUI();
-  }
-  init();
+  // Auth UI handlers
+  document.getElementById("loginBtn").onclick = () => {
+    const user = document.getElementById("loginUsername").value.trim();
+    const pass = document.getElementById("loginPassword").value;
+    if (user && pass) login(user, pass);
+  };
+  document.getElementById("showSignup").onclick = () => {
+    const user = document.getElementById("loginUsername").value.trim();
+    const pass = document.getElementById("loginPassword").value;
+    if (user && pass) signup(user, pass);
+    else authError.innerText = "Enter username and password to sign up";
+  };
+
+  // Initial: show auth screen
+  showAuth();
+  bindGameEvents();
 </script>
 </body>
 </html>
