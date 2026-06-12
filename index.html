@@ -1,363 +1,770 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bike Roar Rater - TFJS On-Device</title>
-    
-    <!-- Load TensorFlow.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
-    <!-- Load Teachable Machine Audio Extension (Handles complex FFT/Spectrogram math automatically) -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Debt Hunter · Hunt Down Your Debts</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Segoe UI', 'Poppins', system-ui, monospace;
+    }
 
-    <style>
-        :root {
-            --primary: #ff4500;
-            --secondary: #222;
-            --bg: #0a0a0a;
-            --text: #ffffff;
-            --accent: #00ff7f;
-        }
+    body {
+      background: radial-gradient(circle at 10% 20%, #0f1a2c, #02070f);
+      margin: 0;
+      padding: 20px;
+      color: #f0f3fa;
+    }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            text-align: center;
-        }
+    .game-container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
 
-        .container {
-            background-color: var(--secondary);
-            padding: 2.5rem;
-            border-radius: 20px;
-            box-shadow: 0 15px 40px rgba(255, 69, 0, 0.15);
-            width: 90%;
-            max-width: 450px;
-            position: relative;
-            overflow: hidden;
-        }
+    .hero-stats {
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      border-radius: 2rem;
+      padding: 1rem 2rem;
+      margin-bottom: 1.5rem;
+      border: 1px solid #ffaa44;
+      box-shadow: 0 0 18px rgba(255, 180, 60, 0.4);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
 
-        /* Top highlight bar */
-        .container::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 5px;
-            background: linear-gradient(90deg, var(--primary), var(--accent));
-        }
+    .stat-card {
+      background: #1e243b;
+      padding: 0.4rem 1rem;
+      border-radius: 2rem;
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+      font-weight: bold;
+      border-left: 4px solid #f5a623;
+    }
 
-        h1 { margin-top: 0; color: var(--primary); text-transform: uppercase; letter-spacing: 2px; }
-        p { color: #aaaaaa; font-size: 0.95rem; margin-bottom: 25px; }
+    .stat-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #bbd1ff;
+    }
 
-        #record-btn {
-            background: linear-gradient(145deg, #ff5722, #e63e00);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 90px; height: 90px;
-            font-size: 32px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 8px 20px rgba(255, 69, 0, 0.4);
-            margin: 10px auto 25px auto;
-            display: flex; align-items: center; justify-content: center;
-        }
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #ffdf8c;
+    }
 
-        #record-btn:active { transform: scale(0.9); }
-        
-        #record-btn.recording {
-            background: #dc143c;
-            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-        }
+    .strategy-panel, .add-debt-panel {
+      background: #101624cc;
+      border-radius: 2rem;
+      padding: 0.8rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      border: 1px solid #4a6180;
+    }
 
-        @keyframes pulse-ring {
-            0% { box-shadow: 0 0 0 0 rgba(220, 20, 60, 0.7); }
-            70% { box-shadow: 0 0 0 25px rgba(220, 20, 60, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(220, 20, 60, 0); }
-        }
+    .strategy-buttons button, .add-debt-panel button {
+      background: #252c44;
+      margin: 0 6px;
+      padding: 8px 16px;
+      border-radius: 3rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
 
-        /* Progress Bar for the 5s capture */
-        .progress-container { width: 100%; height: 6px; background: #333; border-radius: 3px; margin-bottom: 15px; display: none; overflow: hidden; }
-        .progress-bar { height: 100%; width: 0%; background: var(--primary); transition: width 0.1s linear; }
+    .strategy-buttons .active-strat {
+      background: #b86f2c;
+      box-shadow: 0 0 8px #ffa559;
+      border: 1px solid gold;
+    }
 
-        .results { display: none; animation: slideUp 0.5s ease-out forwards; border-top: 1px solid #333; padding-top: 20px; }
-        
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+    .boss-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 1.5rem;
+      margin: 1.8rem 0;
+    }
 
-        .score-box { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 12px; margin-bottom: 15px; }
-        .score-display { font-size: 4rem; font-weight: 900; color: var(--accent); margin: 0; line-height: 1; text-shadow: 0 0 15px rgba(0,255,127,0.3); }
-        .bonus-text { font-size: 0.8rem; color: #ffeb3b; margin-top: 5px; }
+    .boss-card {
+      background: #11161f;
+      border-radius: 1.8rem;
+      padding: 1.2rem;
+      border: 1px solid #2e3a4e;
+      transition: 0.2s;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    }
 
-        .bike-badge {
-            display: inline-block; padding: 6px 12px; border-radius: 6px;
-            background: #333; font-weight: bold; font-size: 1.1rem; margin: 10px 0;
-            border-left: 4px solid var(--primary);
-        }
+    .boss-card.defeated {
+      opacity: 0.5;
+      filter: grayscale(0.4);
+      background: #0a0e16;
+    }
 
-        .trash-talk {
-            font-size: 1.1rem; font-style: italic; background: rgba(255,255,255,0.05);
-            padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid #444;
-        }
+    .boss-name {
+      font-size: 1.3rem;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
 
-        #status { color: #888; font-size: 0.9rem; font-weight: 500; height: 20px; }
-    </style>
+    .hp-bar-bg {
+      background: #2c2f3a;
+      border-radius: 40px;
+      height: 14px;
+      margin: 12px 0;
+      overflow: hidden;
+    }
+
+    .hp-fill {
+      background: #e34d4d;
+      width: 0%;
+      height: 100%;
+      border-radius: 40px;
+      transition: width 0.2s;
+    }
+
+    .interest-tag {
+      font-size: 0.7rem;
+      color: #ffaa77;
+    }
+
+    .payment-methods {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0;
+      align-items: center;
+    }
+
+    .payment-methods button {
+      background: #2a3a4a;
+      font-size: 0.7rem;
+      padding: 5px 10px;
+    }
+
+    .payment-methods button.danger {
+      background: #8b3c2c;
+    }
+
+    .emi-badge {
+      font-size: 0.7rem;
+      background: #2c5530;
+      padding: 2px 8px;
+      border-radius: 20px;
+      display: inline-block;
+    }
+
+    .attack-input {
+      background: #010a14;
+      border: 1px solid #f0b27a;
+      padding: 6px 10px;
+      border-radius: 2rem;
+      color: white;
+      width: 100px;
+    }
+
+    button {
+      background: #3a2c1f;
+      border: none;
+      font-weight: bold;
+      padding: 6px 14px;
+      border-radius: 2rem;
+      cursor: pointer;
+      transition: 0.1s;
+      color: #ffefcf;
+    }
+
+    button.primary {
+      background: #b86f2c;
+      box-shadow: 0 2px 0 #5a2e0a;
+    }
+
+    .spell-panel {
+      background: #0c1020cc;
+      border-radius: 2rem;
+      padding: 1rem;
+      margin: 1rem 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid #5f7f9e;
+    }
+
+    .wallet-section {
+      background: #1a1f2e;
+      border-radius: 2rem;
+      padding: 0.5rem 1rem;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .footer-actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      margin-top: 1rem;
+    }
+
+    h2 {
+      font-size: 1.3rem;
+      border-left: 5px solid #f7b05e;
+      padding-left: 12px;
+    }
+
+    .tooltip {
+      font-size: 0.7rem;
+      color: #adc6ff;
+    }
+
+    input, select {
+      background: #0a1022;
+      border: 1px solid #5f7f9e;
+      border-radius: 2rem;
+      padding: 6px 12px;
+      color: white;
+    }
+
+    .logo {
+      font-size: 1.8rem;
+      font-weight: bold;
+      background: linear-gradient(135deg, #ffcc66, #ff9966);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      letter-spacing: 2px;
+    }
+  </style>
 </head>
 <body>
+<div class="game-container">
+  <!-- HERO STATS with branding -->
+  <div class="hero-stats">
+    <div class="stat-card"><span class="stat-label">🏹 DEBT HUNTER</span><span class="stat-value" id="playerLevel">1</span></div>
+    <div class="stat-card"><span class="stat-label">❤️ TOTAL DEBT HP</span><span class="stat-value" id="totalHp">₹0</span></div>
+    <div class="stat-card"><span class="stat-label">💸 PAID OFF</span><span class="stat-value" id="totalPaid">₹0</span></div>
+    <div class="stat-card"><span class="stat-label">🛡️ SAVINGS ARMOR</span><span class="stat-value" id="armorValue">₹0</span></div>
+    <div class="stat-card"><span class="stat-label">🎲 INITIATIVE</span><span class="stat-value" id="initiativeMult">1.00x</span></div>
+  </div>
 
-    <div class="container">
-        <h1>Roar Rater</h1>
-        <p>100% On-Device AI Architecture</p>
-        
-        <button id="record-btn">🎤</button>
-        
-        <div class="progress-container" id="progress-container">
-            <div class="progress-bar" id="progress-bar"></div>
-        </div>
-        
-        <div id="status">Tap mic to load AI and record</div>
-
-        <div class="results" id="results-card">
-            <div class="score-box">
-                <div style="font-size: 0.9rem; color:#aaa; text-transform:uppercase; letter-spacing:1px;">Final Roar Score</div>
-                <div class="score-display" id="roar-score">0</div>
-                <div class="bonus-text" id="bonus-text">+0 Character Bonus</div>
-            </div>
-            
-            <div><span class="bike-badge" id="bike-class">Analyzing...</span></div>
-            <div class="trash-talk" id="trash-talk-text"></div>
-        </div>
+  <!-- STRATEGY + ADD DEBT -->
+  <div class="strategy-panel">
+    <div class="motivation-badge">⚔️ HUNTING STRATEGY ⚔️</div>
+    <div class="strategy-buttons" id="strategyButtons">
+      <button id="stratSnowball" class="active-strat">❄️ SNOWBALL (smallest balance)</button>
+      <button id="stratAvalanche">⛰️ AVALANCHE (highest APR)</button>
+      <button id="stratHybrid">🔀 HYBRID (APR + kill bonus)</button>
     </div>
+    <div class="tooltip" id="stratHint">🎯 Snowball: quick wins first.</div>
+  </div>
 
-    <script>
-        // --- 1. CONFIGURATION ---
-        // REPLACE this URL with your own Teachable Machine Audio model link once you train it!
-        // Example: "https://teachablemachine.withgoogle.com/models/YOUR_MODEL_ID/"
-        const URL = "https://teachablemachine.withgoogle.com/models/placeholder/"; 
-        
-        const RECORD_DURATION_MS = 5000; // 5 seconds
-        
-        // Trash Talk Engine (Tamil-English)
-        const trashTalkTemplates = {
-            low: [
-                "Enna ba, mixer grinder sound kekuthu! 😂",
-                "TVS 50 ah idhu? Needs more throat! 🛵",
-                "Sathame illa... Cycle otlama ba? 🚲"
-            ],
-            medium: [
-                "Not bad, aana innum konjam raw power thevai! 🏍️",
-                "Decent ah irukku, but where is the bass man? 🤔",
-                "KTM Duke vibes, pulling out okay! 🔥"
-            ],
-            high: [
-                "Verithanam! Pure muscle! 💥",
-                "Therikkavidalama! That's a beast roaring! 🦁",
-                "Kaantha kural! Royal Enfield thozha! 👑"
-            ]
-        };
+  <div class="add-debt-panel">
+    <span>➕ ADD NEW PREY (CUSTOM DEBT)</span>
+    <input type="text" id="debtName" placeholder="Name e.g., Medical Loan" style="width:150px">
+    <input type="number" id="debtPrincipal" placeholder="Principal ₹" value="50000">
+    <input type="number" id="debtApr" placeholder="APR %" value="18">
+    <input type="number" id="debtDuration" placeholder="Duration (months)" value="12">
+    <button id="addDebtBtn" class="primary">➕ ADD BOSS</button>
+    <button id="resetAllBtn" style="background:#691c1c;">🔥 RESET ALL (default debts)</button>
+  </div>
 
-        // UI Elements
-        const recordBtn = document.getElementById('record-btn');
-        const statusText = document.getElementById('status');
-        const resultsCard = document.getElementById('results-card');
-        const roarScoreEl = document.getElementById('roar-score');
-        const bikeClassEl = document.getElementById('bike-class');
-        const trashTalkEl = document.getElementById('trash-talk-text');
-        const bonusTextEl = document.getElementById('bonus-text');
-        const progressContainer = document.getElementById('progress-container');
-        const progressBar = document.getElementById('progress-bar');
+  <!-- BOSS ARENA (Debts to Hunt) -->
+  <h2>💀 THE DEBT MENACE</h2>
+  <div id="bossListContainer" class="boss-grid"></div>
 
-        // State Variables
-        let isRecording = false;
-        let recognizer;
-        let audioContext;
-        let analyser;
-        let microphone;
-        let maxVolume = 0;
-        let detectedClass = "Unknown";
-        let maxConfidence = 0;
-        let progressInterval;
+  <!-- SPELLS & WAR CHEST -->
+  <div class="spell-panel">
+    <div class="wallet-section">
+      <span>💰 HUNTER'S WAR CHEST</span>
+      <strong style="font-size: 1.8rem;" id="walletAmount">₹0</strong>
+      <span style="font-size:0.7rem;">(attack power)</span>
+    </div>
+    <button id="receivePaycheckBtn" class="primary">💵 PAYDAY +₹4000</button>
+    <button id="scavengeBtn">🔍 SCAVENGE (luck +₹)</button>
+    <button id="rollInitiativeBtn">🎲 ROLL INITIATIVE (weekly buff)</button>
+    <button id="saveToArmorBtn">🛡️ MOVE ₹ TO SAVINGS</button>
+    <button id="withdrawFromArmorBtn">⚔️ WITHDRAW FROM SAVINGS</button>
+  </div>
 
-        // --- 2. TFJS MODEL LOADING ---
-        async function createModel() {
-            const checkpointURL = URL + "model.json"; // model topology
-            const metadataURL = URL + "metadata.json"; // model metadata
+  <div class="spell-panel">
+    <span>✨ HUNTER'S TOOLS (side quests, once per week)</span>
+    <button id="spellCancelSub">📺 Cancel OTT sub (+₹300)</button>
+    <button id="spellFridge">🥫 Fridge divination (+₹500)</button>
+    <button id="spellGig">🛵 Gig of week (+₹1000)</button>
+    <button id="spellNegotiate">🤝 NEGOTIATE APR (-2% on selected)</button>
+    <select id="negotiateBossSelect"></select>
+  </div>
 
-            try {
-                const recognizer = speechCommands.create(
-                    "BROWSER_FFT", // Fourier transform type
-                    undefined,     // speech commands vocabulary feature
-                    checkpointURL,
-                    metadataURL
-                );
-                // check that model and metadata are loaded
-                await recognizer.ensureModelLoaded();
-                return recognizer;
-            } catch (e) {
-                console.warn("Real TFJS model not found. Falling back to Mock Engine for UI testing.");
-                return null; // Return null to trigger the graceful fallback demo
-            }
+  <div class="footer-actions">
+    <div class="tooltip">💡 End week: interest attacks. EMI plans auto-deduct weekly.</div>
+    <button id="endWeekBtn" style="background:#5a3e1f;">⏳ END WEEK → interest & EMI</button>
+  </div>
+</div>
+
+<script>
+  // ---------- DEFAULT DEBTS (India focused) ----------
+  let bosses = [
+    { id: "ccard", name: "💳 Credit Card Demon", balance: 75000, apr: 42, durationMonths: 0, emiPlan: null, defeated: false, originalApr: 42 },
+    { id: "personalloan", name: "🏦 Personal Loan Giant", balance: 350000, apr: 14, durationMonths: 24, emiPlan: null, defeated: false, originalApr: 14 },
+    { id: "carloan", name: "🚗 Car Loan Golem", balance: 600000, apr: 9.5, durationMonths: 60, emiPlan: null, defeated: false, originalApr: 9.5 },
+    { id: "goldloan", name: "✨ Gold Loan Djinn", balance: 120000, apr: 12, durationMonths: 12, emiPlan: null, defeated: false, originalApr: 12 },
+    { id: "eduloan", name: "📚 Education Loan Lich", balance: 500000, apr: 8, durationMonths: 120, emiPlan: null, defeated: false, originalApr: 8 }
+  ];
+
+  let player = {
+    savings: 0,
+    wallet: 5000,
+    totalPaidOff: 0,
+    initiativeMultiplier: 1.0,
+    initiativeRolledThisWeek: false,
+    spellsUsed: { cancel: false, fridge: false, gig: false, negotiateUsed: false },
+    scavengeUsed: false,
+    paycheckCollected: false,
+    level: 1,
+    activeStrategy: "snowball"
+  };
+
+  let nextId = 100;
+
+  // Helper functions
+  function totalRemainingDebt() {
+    return bosses.reduce((sum, b) => sum + (b.defeated ? 0 : b.balance), 0);
+  }
+
+  function updateLevel() {
+    let newLevel = 1 + Math.floor(player.totalPaidOff / 50000);
+    player.level = Math.min(30, newLevel);
+    return player.level;
+  }
+
+  function getArmorReductionPercent() {
+    let tiers = Math.floor(player.savings / 500);
+    return Math.min(20, tiers);
+  }
+
+  function getRecommendedBoss() {
+    const active = bosses.filter(b => !b.defeated);
+    if (active.length === 0) return null;
+    if (player.activeStrategy === "snowball") {
+      return active.reduce((a, b) => (a.balance < b.balance ? a : b));
+    } else {
+      return active.reduce((a, b) => (a.apr > b.apr ? a : b));
+    }
+  }
+
+  function showFloatyMsg(msg, isError = false) {
+    let div = document.createElement("div");
+    div.innerText = msg;
+    div.style.position = "fixed";
+    div.style.bottom = "20px";
+    div.style.right = "20px";
+    div.style.backgroundColor = isError ? "#990000cc" : "#000000cc";
+    div.style.padding = "8px 18px";
+    div.style.borderRadius = "30px";
+    div.style.borderLeft = `4px solid ${isError ? "#ff6666" : "#ffcc66"}`;
+    div.style.zIndex = "999";
+    div.style.fontSize = "0.8rem";
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 2200);
+  }
+
+  // Generic payment method: partial (custom amount)
+  function makePartialPayment(boss, amount) {
+    if (amount <= 0) return false;
+    if (amount > player.wallet) { showFloatyMsg("Not enough War Chest", true); return false; }
+    let damage = amount * player.initiativeMultiplier;
+    let isCrit = Math.random() < 0.1;
+    if (isCrit) damage = damage * 1.8;
+    damage = Math.min(damage, boss.balance);
+    let paid = damage;
+    boss.balance = parseFloat((boss.balance - paid).toFixed(2));
+    player.wallet -= amount;
+    player.totalPaidOff += paid;
+    if (boss.balance <= 0.01) {
+      boss.defeated = true;
+      boss.balance = 0;
+      if (player.activeStrategy === "hybrid") {
+        player.wallet += 500;
+        showFloatyMsg(`🔥 HYBRID BONUS! +₹500 for slaying ${boss.name}`);
+      } else {
+        player.wallet += 300;
+      }
+      showFloatyMsg(`💀 ${boss.name} DEFEATED! Bonus +₹300`);
+    } else {
+      showFloatyMsg(`💥 ${boss.name} took ₹${paid.toFixed(2)} damage! ${isCrit ? "CRIT! " : ""}Balance: ₹${boss.balance.toFixed(2)}`);
+    }
+    return true;
+  }
+
+  // Single settlement: pay full remaining balance
+  function singleSettlement(boss) {
+    if (boss.defeated) { showFloatyMsg("Already defeated", true); return; }
+    let fullAmount = boss.balance;
+    if (fullAmount > player.wallet) { showFloatyMsg(`Need ₹${fullAmount.toFixed(2)} for full settlement`, true); return; }
+    let paid = fullAmount;
+    player.wallet -= paid;
+    player.totalPaidOff += paid;
+    boss.balance = 0;
+    boss.defeated = true;
+    if (player.activeStrategy === "hybrid") {
+      player.wallet += 500;
+      showFloatyMsg(`🔥 HYBRID BONUS! +₹500 for full settlement of ${boss.name}`);
+    } else {
+      player.wallet += 300;
+    }
+    showFloatyMsg(`🎉 FULL SETTLEMENT! ${boss.name} cleared. Bonus +₹300`);
+    updateUI();
+    saveGame();
+  }
+
+  // Setup EMI plan (monthly auto-pay each week)
+  function setupEMI(boss) {
+    if (boss.defeated) { showFloatyMsg("Cannot set EMI on defeated boss", true); return; }
+    let emiAmount = parseFloat(prompt(`Enter weekly EMI amount for ${boss.name} (₹):\nThis amount will be deducted from War Chest every END WEEK until debt cleared.`, "2000"));
+    if (isNaN(emiAmount) || emiAmount <= 0) return;
+    boss.emiPlan = { weeklyAmount: emiAmount };
+    showFloatyMsg(`📅 EMI plan set: ₹${emiAmount}/week will auto-pay ${boss.name}`);
+    updateUI();
+    saveGame();
+  }
+
+  function processEMIPayments() {
+    let anyChange = false;
+    for (let boss of bosses) {
+      if (boss.defeated) continue;
+      if (boss.emiPlan && boss.emiPlan.weeklyAmount > 0) {
+        let emi = boss.emiPlan.weeklyAmount;
+        if (emi > player.wallet) {
+          showFloatyMsg(`⚠️ EMI for ${boss.name} failed: insufficient War Chest (need ₹${emi})`, true);
+          continue;
         }
-
-        // --- 3. CORE LOGIC ---
-        recordBtn.addEventListener('click', async () => {
-            if (isRecording) return;
-            
-            resultsCard.style.display = 'none';
-            statusText.innerText = 'Loading TFJS Model into memory...';
-            
-            // Lazy load model on first click
-            if (!recognizer && recognizer !== null) {
-                recognizer = await createModel();
-            }
-
-            startPipeline();
-        });
-
-        async function startPipeline() {
-            try {
-                // Request raw microphone access for decibel calculation
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                setupDecibelTracker(stream);
-
-                isRecording = true;
-                recordBtn.classList.add('recording');
-                progressContainer.style.display = 'block';
-                progressBar.style.width = '0%';
-                statusText.innerText = 'Listening... Rev the engine!';
-
-                // Start Progress Bar
-                let elapsed = 0;
-                progressInterval = setInterval(() => {
-                    elapsed += 100;
-                    progressBar.style.width = (elapsed / RECORD_DURATION_MS) * 100 + '%';
-                }, 100);
-
-                // If real TFJS model loaded, start classifying in real time
-                if (recognizer) {
-                    const classLabels = recognizer.wordLabels(); 
-                    recognizer.listen(result => {
-                        // Find highest confidence class during this window
-                        let scores = result.scores;
-                        let highestIndex = scores.indexOf(Math.max(...scores));
-                        
-                        if (scores[highestIndex] > maxConfidence) {
-                            maxConfidence = scores[highestIndex];
-                            detectedClass = classLabels[highestIndex];
-                        }
-                    }, {
-                        includeSpectrogram: false,
-                        probabilityThreshold: 0.75,
-                        invokeCallbackOnNoiseAndUnknown: true,
-                        overlapFactor: 0.50
-                    });
-                }
-
-                // Stop after 5 seconds
-                setTimeout(() => {
-                    stopPipeline(stream);
-                }, RECORD_DURATION_MS);
-
-            } catch (err) {
-                console.error(err);
-                statusText.innerText = "Error: Microphone permission denied.";
-            }
+        let payment = Math.min(emi, boss.balance);
+        player.wallet -= payment;
+        boss.balance = parseFloat((boss.balance - payment).toFixed(2));
+        player.totalPaidOff += payment;
+        anyChange = true;
+        if (boss.balance <= 0.01) {
+          boss.defeated = true;
+          boss.balance = 0;
+          boss.emiPlan = null;
+          player.wallet += 300; // kill bonus
+          showFloatyMsg(`💀 EMI cleared ${boss.name}! +₹300 bonus`);
+        } else {
+          showFloatyMsg(`🔄 EMI paid ₹${payment} on ${boss.name}. Remaining: ₹${boss.balance.toFixed(2)}`);
         }
+      }
+    }
+    if (anyChange) updateUI();
+  }
 
-        function setupDecibelTracker(stream) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            microphone = audioContext.createMediaStreamSource(stream);
-            microphone.connect(analyser);
-            analyser.fftSize = 256;
-            
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-            maxVolume = 0;
+  // Add custom debt
+  function addCustomDebt() {
+    let name = document.getElementById("debtName").value.trim();
+    if (!name) name = "Custom Debt";
+    let principal = parseFloat(document.getElementById("debtPrincipal").value);
+    let apr = parseFloat(document.getElementById("debtApr").value);
+    let duration = parseInt(document.getElementById("debtDuration").value);
+    if (isNaN(principal) || principal <= 0) { alert("Principal must be >0"); return; }
+    if (isNaN(apr) || apr < 0) apr = 0;
+    if (isNaN(duration)) duration = 0;
+    let newId = "custom_" + (nextId++);
+    bosses.push({
+      id: newId,
+      name: name,
+      balance: principal,
+      apr: apr,
+      durationMonths: duration,
+      emiPlan: null,
+      defeated: false,
+      originalApr: apr
+    });
+    showFloatyMsg(`➕ New debt "${name}" (₹${principal}, ${apr}% APR) added!`);
+    updateUI();
+    saveGame();
+  }
 
-            function track() {
-                if (!isRecording) return;
-                analyser.getByteFrequencyData(dataArray);
-                let sum = 0;
-                for (let i = 0; i < bufferLength; i++) { sum += dataArray[i]; }
-                let avg = sum / bufferLength;
-                if (avg > maxVolume) maxVolume = avg; // Track peak volume
-                requestAnimationFrame(track);
-            }
-            track();
-        }
+  // Full reset to default debts (clears all custom and resets progress)
+  function fullReset() {
+    bosses = [
+      { id: "ccard", name: "💳 Credit Card Demon", balance: 75000, apr: 42, durationMonths: 0, emiPlan: null, defeated: false, originalApr: 42 },
+      { id: "personalloan", name: "🏦 Personal Loan Giant", balance: 350000, apr: 14, durationMonths: 24, emiPlan: null, defeated: false, originalApr: 14 },
+      { id: "carloan", name: "🚗 Car Loan Golem", balance: 600000, apr: 9.5, durationMonths: 60, emiPlan: null, defeated: false, originalApr: 9.5 },
+      { id: "goldloan", name: "✨ Gold Loan Djinn", balance: 120000, apr: 12, durationMonths: 12, emiPlan: null, defeated: false, originalApr: 12 },
+      { id: "eduloan", name: "📚 Education Loan Lich", balance: 500000, apr: 8, durationMonths: 120, emiPlan: null, defeated: false, originalApr: 8 }
+    ];
+    player = {
+      savings: 0,
+      wallet: 5000,
+      totalPaidOff: 0,
+      initiativeMultiplier: 1.0,
+      initiativeRolledThisWeek: false,
+      spellsUsed: { cancel: false, fridge: false, gig: false, negotiateUsed: false },
+      scavengeUsed: false,
+      paycheckCollected: false,
+      level: 1,
+      activeStrategy: player.activeStrategy || "snowball"
+    };
+    nextId = 100;
+    updateUI();
+    saveGame();
+    showFloatyMsg("✨ FULL RESET: Default debts restored, progress wiped.");
+  }
 
-        function stopPipeline(stream) {
-            isRecording = false;
-            clearInterval(progressInterval);
-            recordBtn.classList.remove('recording');
-            progressContainer.style.display = 'none';
-            statusText.innerText = 'Processing completely on-device...';
+  // End week: interest + EMI
+  function endWeek() {
+    let armorPct = getArmorReductionPercent();
+    let totalInterest = 0;
+    for (let boss of bosses) {
+      if (boss.defeated) continue;
+      let weeklyRaw = boss.balance * (boss.apr / 100) / 52;
+      let reduction = weeklyRaw * (armorPct / 100);
+      let actual = weeklyRaw - reduction;
+      if (actual < 0) actual = 0;
+      boss.balance += actual;
+      totalInterest += actual;
+      boss.balance = parseFloat(boss.balance.toFixed(2));
+    }
+    // Process EMI payments after interest accrual
+    processEMIPayments();
 
-            // Clean up Audio Context
-            stream.getTracks().forEach(track => track.stop());
-            if (audioContext && audioContext.state !== 'closed') {
-                audioContext.close();
-            }
-            if (recognizer) {
-                recognizer.stopListening();
-            }
+    // Reset weekly flags
+    player.initiativeMultiplier = 1.0;
+    player.initiativeRolledThisWeek = false;
+    player.spellsUsed = { cancel: false, fridge: false, gig: false, negotiateUsed: false };
+    player.scavengeUsed = false;
+    player.paycheckCollected = false;
 
-            calculateAndShowResults();
-        }
+    alert(`⚡ WEEK ENDED.\nInterest added: ₹${totalInterest.toFixed(2)} (armor reduced ${armorPct}%)\nEMI auto-payments processed.\nSpells & initiative reset.`);
+    updateUI();
+    saveGame();
+  }
 
-        function calculateAndShowResults() {
-            // 1. Calculate Base Decibel Score (Mapping peak volume 0-255 to 0-85)
-            let baseScore = Math.min(85, Math.round((maxVolume / 255) * 85 * 1.5)); 
-            if (baseScore < 10) baseScore = Math.floor(Math.random() * 20) + 10; 
+  function rollInitiative() {
+    if (player.initiativeRolledThisWeek) { alert("Already rolled initiative this week!"); return; }
+    const roll = Math.floor(Math.random() * 6) + 1;
+    let mult = roll <= 2 ? 0.9 : (roll <= 4 ? 1.0 : 2.0);
+    player.initiativeMultiplier = mult;
+    player.initiativeRolledThisWeek = true;
+    alert(`🎲 Initiative roll: ${roll} → ${mult}x damage this week!`);
+    updateUI();
+    saveGame();
+  }
 
-            // 2. Handle AI Bike Classification & Character Bonus
-            let characterBonus = 0;
+  function castSpell(spell, gain) {
+    if (player.spellsUsed[spell]) { alert(`Spell "${spell}" already used this week.`); return; }
+    player.wallet += gain;
+    player.spellsUsed[spell] = true;
+    alert(`✨ +₹${gain} added to War Chest.`);
+    updateUI();
+    saveGame();
+  }
 
-            // If the user hasn't put in their real Teachable Machine URL yet, Mock the AI
-            if (!recognizer) {
-                if (baseScore > 75) { detectedClass = "Royal Enfield Classic 350"; maxConfidence = 0.92; }
-                else if (baseScore > 50) { detectedClass = "KTM Duke 390"; maxConfidence = 0.85; }
-                else { detectedClass = "TVS XL Super"; maxConfidence = 0.78; }
-            }
+  function negotiateApr() {
+    if (player.spellsUsed.negotiateUsed) { alert("Negotiate already used this week."); return; }
+    let sel = document.getElementById("negotiateBossSelect");
+    let bossId = sel.value;
+    let boss = bosses.find(b => b.id === bossId);
+    if (!boss || boss.defeated) { alert("Select active boss"); return; }
+    let newApr = Math.max(1, boss.apr - 2);
+    boss.apr = newApr;
+    player.spellsUsed.negotiateUsed = true;
+    alert(`🤝 ${boss.name} APR reduced to ${boss.apr}%!`);
+    updateUI();
+    saveGame();
+  }
 
-            // Assign Bonus based on AI Output (The "Character" Bonus from your architecture)
-            if (detectedClass.includes("Royal Enfield")) characterBonus = 15;
-            else if (detectedClass.includes("KTM")) characterBonus = 10;
-            else if (detectedClass.includes("Yamaha")) characterBonus = 8;
-            else characterBonus = 2; // Commuter bikes get low bonus
+  function getPaycheck() {
+    if (player.paycheckCollected) { alert("Paycheck already this week."); return; }
+    player.wallet += 4000;
+    player.paycheckCollected = true;
+    alert("💵 +₹4000 credited to War Chest.");
+    updateUI();
+    saveGame();
+  }
 
-            // 3. Final Roar Score Calculation
-            let finalScore = Math.min(100, baseScore + characterBonus);
+  function scavenge() {
+    if (player.scavengeUsed) { alert("Scavenge once per week."); return; }
+    let found = Math.floor(Math.random() * 700) + 100;
+    player.wallet += found;
+    player.scavengeUsed = true;
+    alert(`🔍 Scavenged ₹${found}!`);
+    updateUI();
+    saveGame();
+  }
 
-            // 4. Update UI
-            roarScoreEl.innerText = finalScore;
-            bonusTextEl.innerText = `+${characterBonus} Character Bonus (${detectedClass})`;
-            bikeClassEl.innerText = `${detectedClass} (Confidence: ${Math.round(maxConfidence * 100)}%)`;
-            
-            // 5. Fire Trash Talk Engine
-            let category = 'low';
-            if (finalScore > 75) category = 'high';
-            else if (finalScore > 40) category = 'medium';
+  function saveToArmor() {
+    let amt = parseFloat(prompt("Move from War Chest to Savings (₹):", "500"));
+    if (isNaN(amt) || amt <= 0) return;
+    if (amt > player.wallet) { alert("Not enough War Chest"); return; }
+    player.wallet -= amt;
+    player.savings += amt;
+    alert(`🛡️ ₹${amt} moved to savings. Armor now reduces interest by ${getArmorReductionPercent()}%.`);
+    updateUI();
+    saveGame();
+  }
 
-            const phrases = trashTalkTemplates[category];
-            trashTalkEl.innerText = phrases[Math.floor(Math.random() * phrases.length)];
+  function withdrawFromArmor() {
+    let amt = parseFloat(prompt("Withdraw from Savings to War Chest (₹):", "300"));
+    if (isNaN(amt) || amt <= 0) return;
+    if (amt > player.savings) { alert("Not enough savings"); return; }
+    player.savings -= amt;
+    player.wallet += amt;
+    alert(`⚔️ ₹${amt} withdrawn to War Chest.`);
+    updateUI();
+    saveGame();
+  }
 
-            resultsCard.style.display = 'block';
-            statusText.innerText = 'Tap mic to test another bike!';
-            
-            // Reset state for next run
-            maxConfidence = 0;
-            detectedClass = "Unknown";
-        }
-    </script>
+  // UI rendering
+  function updateUI() {
+    document.getElementById("totalHp").innerText = "₹" + totalRemainingDebt().toFixed(2);
+    document.getElementById("totalPaid").innerText = "₹" + player.totalPaidOff.toFixed(2);
+    document.getElementById("armorValue").innerText = "₹" + player.savings.toFixed(2);
+    document.getElementById("walletAmount").innerText = "₹" + player.wallet.toFixed(2);
+    document.getElementById("initiativeMult").innerText = player.initiativeMultiplier.toFixed(2) + "x";
+    updateLevel();
+    document.getElementById("playerLevel").innerText = player.level;
+
+    const container = document.getElementById("bossListContainer");
+    container.innerHTML = "";
+    const recommended = getRecommendedBoss();
+
+    bosses.forEach(boss => {
+      if (boss.defeated) {
+        const div = document.createElement("div");
+        div.className = "boss-card defeated";
+        div.innerHTML = `<div class="boss-name"><span>${boss.name}</span><span>💀 DEFEATED</span></div>`;
+        container.appendChild(div);
+        return;
+      }
+      const isRecommended = (recommended && recommended.id === boss.id);
+      const card = document.createElement("div");
+      card.className = "boss-card";
+      card.style.border = isRecommended ? "2px solid #ffc857" : "1px solid #2e3a4e";
+      let initialBal = boss.originalApr === 42 ? 75000 : (boss.originalApr === 14 ? 350000 : (boss.originalApr === 9.5 ? 600000 : (boss.originalApr === 12 ? 120000 : (boss.originalApr === 8 ? 500000 : boss.balance + 10000))));
+      const hpPercent = (boss.balance / initialBal) * 100;
+      const emiInfo = boss.emiPlan ? `<span class="emi-badge">📆 EMI: ₹${boss.emiPlan.weeklyAmount}/week</span>` : "";
+      card.innerHTML = `
+        <div class="boss-name">
+          <span>${boss.name}</span>
+          <span>❤️ ₹${boss.balance.toFixed(2)}</span>
+        </div>
+        <div class="hp-bar-bg"><div class="hp-fill" style="width: ${Math.min(100, hpPercent)}%;"></div></div>
+        <div class="interest-tag">⚔️ ${boss.apr}% APR | 📅 ${boss.durationMonths > 0 ? boss.durationMonths + " mo" : "flexible"}</div>
+        <div class="payment-methods">
+          <button class="settle-full-btn" data-id="${boss.id}">💰 ONE-TIME SETTLEMENT</button>
+          <button class="partial-pay-btn" data-id="${boss.id}">✂️ PART PAYMENT</button>
+          <button class="setup-emi-btn" data-id="${boss.id}">📆 MONTHLY EMI PLAN</button>
+          ${emiInfo}
+        </div>
+        <div class="attack-form" id="partial-input-${boss.id}" style="display: flex; gap: 6px; align-items: center;">
+          <input type="number" id="partialAmount_${boss.id}" placeholder="₹ amount" value="0" step="500" style="flex:1" class="attack-input">
+          <button class="primary pay-partial-confirm" data-id="${boss.id}">APPLY PART</button>
+        </div>
+        ${isRecommended ? '<div class="tooltip" style="color:#ffd966;">🎯 RECOMMENDED TARGET</div>' : ''}
+      `;
+      container.appendChild(card);
+    });
+
+    // rebind dynamic buttons
+    document.querySelectorAll(".settle-full-btn").forEach(btn => {
+      btn.onclick = () => { let b = bosses.find(b => b.id === btn.dataset.id); if(b) singleSettlement(b); };
+    });
+    document.querySelectorAll(".setup-emi-btn").forEach(btn => {
+      btn.onclick = () => { let b = bosses.find(b => b.id === btn.dataset.id); if(b) setupEMI(b); };
+    });
+    document.querySelectorAll(".pay-partial-confirm").forEach(btn => {
+      btn.onclick = () => {
+        let boss = bosses.find(b => b.id === btn.dataset.id);
+        if(!boss) return;
+        let input = document.getElementById(`partialAmount_${btn.dataset.id}`);
+        let amt = parseFloat(input.value);
+        if (!isNaN(amt) && amt > 0) makePartialPayment(boss, amt);
+        else showFloatyMsg("Enter valid amount", true);
+        input.value = "0";
+        updateUI();
+        saveGame();
+      };
+    });
+
+    // update negotiate dropdown
+    let select = document.getElementById("negotiateBossSelect");
+    select.innerHTML = "";
+    bosses.forEach(b => {
+      if (!b.defeated) {
+        let opt = document.createElement("option");
+        opt.value = b.id;
+        opt.innerText = `${b.name} (${b.apr}%)`;
+        select.appendChild(opt);
+      }
+    });
+  }
+
+  function setStrategy(strat) {
+    player.activeStrategy = strat;
+    document.getElementById("stratHint").innerHTML = strat === "snowball" ? "❄️ Snowball: smallest balance first → motivation wins" : (strat === "avalanche" ? "⛰️ Avalanche: highest APR first → saves most interest" : "🔀 Hybrid: APR priority + ₹500 kill bonus");
+    ["stratSnowball","stratAvalanche","stratHybrid"].forEach(s => document.getElementById(s).classList.remove("active-strat"));
+    document.getElementById(`strat${strat.charAt(0).toUpperCase()+strat.slice(1)}`).classList.add("active-strat");
+    updateUI();
+    saveGame();
+  }
+
+  function saveGame() {
+    const save = { bosses: bosses.map(b => ({ ...b, emiPlan: b.emiPlan ? { ...b.emiPlan } : null })), player: { ...player }, nextId };
+    localStorage.setItem("debtHunterSave", JSON.stringify(save));
+  }
+
+  function loadGame() {
+    const raw = localStorage.getItem("debtHunterSave");
+    if (!raw) return false;
+    try {
+      const data = JSON.parse(raw);
+      bosses = data.bosses.map(b => ({ ...b, emiPlan: b.emiPlan ? { ...b.emiPlan } : null }));
+      player = { ...data.player };
+      nextId = data.nextId || 100;
+      if (!player.spellsUsed) player.spellsUsed = { cancel: false, fridge: false, gig: false, negotiateUsed: false };
+      return true;
+    } catch(e) { return false; }
+  }
+
+  function bindEvents() {
+    document.getElementById("receivePaycheckBtn").onclick = getPaycheck;
+    document.getElementById("scavengeBtn").onclick = scavenge;
+    document.getElementById("rollInitiativeBtn").onclick = rollInitiative;
+    document.getElementById("saveToArmorBtn").onclick = saveToArmor;
+    document.getElementById("withdrawFromArmorBtn").onclick = withdrawFromArmor;
+    document.getElementById("spellCancelSub").onclick = () => castSpell("cancel", 300);
+    document.getElementById("spellFridge").onclick = () => castSpell("fridge", 500);
+    document.getElementById("spellGig").onclick = () => castSpell("gig", 1000);
+    document.getElementById("spellNegotiate").onclick = negotiateApr;
+    document.getElementById("endWeekBtn").onclick = endWeek;
+    document.getElementById("addDebtBtn").onclick = addCustomDebt;
+    document.getElementById("resetAllBtn").onclick = fullReset;
+    document.getElementById("stratSnowball").onclick = () => setStrategy("snowball");
+    document.getElementById("stratAvalanche").onclick = () => setStrategy("avalanche");
+    document.getElementById("stratHybrid").onclick = () => setStrategy("hybrid");
+  }
+
+  function init() {
+    if (!loadGame()) fullReset();
+    bindEvents();
+    setStrategy(player.activeStrategy);
+    updateUI();
+  }
+  init();
+</script>
 </body>
 </html>
