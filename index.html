@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Debt Hunter · Hunt Down Your Debts</title>
+  <title>Debt Hunter · Build Your Own Debt Hunt</title>
   <style>
     * {
       box-sizing: border-box;
@@ -61,7 +61,7 @@
       color: #ffdf8c;
     }
 
-    .strategy-panel, .add-debt-panel {
+    .strategy-panel, .add-debt-panel, .custom-sidequest-panel {
       background: #101624cc;
       border-radius: 2rem;
       padding: 0.8rem 1.5rem;
@@ -74,7 +74,7 @@
       border: 1px solid #4a6180;
     }
 
-    .strategy-buttons button, .add-debt-panel button {
+    .strategy-buttons button, .add-debt-panel button, .custom-sidequest-panel button {
       background: #252c44;
       margin: 0 6px;
       padding: 8px 16px;
@@ -152,10 +152,6 @@
       background: #2a3a4a;
       font-size: 0.7rem;
       padding: 5px 10px;
-    }
-
-    .payment-methods button.danger {
-      background: #8b3c2c;
     }
 
     .emi-badge {
@@ -239,20 +235,24 @@
       color: white;
     }
 
-    .logo {
-      font-size: 1.8rem;
-      font-weight: bold;
-      background: linear-gradient(135deg, #ffcc66, #ff9966);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      letter-spacing: 2px;
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      background: #0c1020aa;
+      border-radius: 2rem;
+      border: 1px dashed #ffaa44;
+      color: #ffdf8c;
+    }
+
+    .custom-quest-btn {
+      background: #2a5f3a;
+      margin: 2px;
     }
   </style>
 </head>
 <body>
 <div class="game-container">
-  <!-- HERO STATS with branding -->
+  <!-- HERO STATS -->
   <div class="hero-stats">
     <div class="stat-card"><span class="stat-label">🏹 DEBT HUNTER</span><span class="stat-value" id="playerLevel">1</span></div>
     <div class="stat-card"><span class="stat-label">❤️ TOTAL DEBT HP</span><span class="stat-value" id="totalHp">₹0</span></div>
@@ -279,34 +279,36 @@
     <input type="number" id="debtApr" placeholder="APR %" value="18">
     <input type="number" id="debtDuration" placeholder="Duration (months)" value="12">
     <button id="addDebtBtn" class="primary">➕ ADD BOSS</button>
-    <button id="resetAllBtn" style="background:#691c1c;">🔥 RESET ALL (default debts)</button>
+    <button id="resetAllBtn" style="background:#691c1c;">🔥 RESET ALL (clear everything)</button>
   </div>
 
-  <!-- BOSS ARENA (Debts to Hunt) -->
+  <!-- BOSS ARENA (Debts to Hunt) - EMPTY BY DEFAULT -->
   <h2>💀 THE DEBT MENACE</h2>
-  <div id="bossListContainer" class="boss-grid"></div>
+  <div id="bossListContainer" class="boss-grid">
+    <div class="empty-state">🏹 No debts tracked yet.<br>Use "ADD NEW PREY" above to start hunting your debts.</div>
+  </div>
 
-  <!-- SPELLS & WAR CHEST -->
+  <!-- HUNTER'S WAR CHEST (wallet) with custom add -->
   <div class="spell-panel">
     <div class="wallet-section">
       <span>💰 HUNTER'S WAR CHEST</span>
       <strong style="font-size: 1.8rem;" id="walletAmount">₹0</strong>
-      <span style="font-size:0.7rem;">(attack power)</span>
     </div>
     <button id="receivePaycheckBtn" class="primary">💵 PAYDAY +₹4000</button>
     <button id="scavengeBtn">🔍 SCAVENGE (luck +₹)</button>
-    <button id="rollInitiativeBtn">🎲 ROLL INITIATIVE (weekly buff)</button>
+    <button id="addCustomFundsBtn">💸 ADD CUSTOM AMOUNT</button>
     <button id="saveToArmorBtn">🛡️ MOVE ₹ TO SAVINGS</button>
     <button id="withdrawFromArmorBtn">⚔️ WITHDRAW FROM SAVINGS</button>
+    <button id="rollInitiativeBtn">🎲 ROLL INITIATIVE (weekly buff)</button>
   </div>
 
-  <div class="spell-panel">
-    <span>✨ HUNTER'S TOOLS (side quests, once per week)</span>
-    <button id="spellCancelSub">📺 Cancel OTT sub (+₹300)</button>
-    <button id="spellFridge">🥫 Fridge divination (+₹500)</button>
-    <button id="spellGig">🛵 Gig of week (+₹1000)</button>
-    <button id="spellNegotiate">🤝 NEGOTIATE APR (-2% on selected)</button>
-    <select id="negotiateBossSelect"></select>
+  <!-- HUNTER'S TOOLS - EMPTY CUSTOM SIDE QUESTS -->
+  <div class="custom-sidequest-panel">
+    <span>✨ HUNTER'S TOOLS (custom side quests)</span>
+    <button id="addCustomQuestBtn" class="primary">➕ ADD CUSTOM SIDE QUEST</button>
+  </div>
+  <div id="customQuestsContainer" class="spell-panel" style="justify-content: flex-start; gap: 12px;">
+    <div class="tooltip" style="width:100%;">No side quests added. Click "ADD CUSTOM SIDE QUEST" to create your own spells (e.g., "Sell old phone +₹2000"). Each can be used once per week.</div>
   </div>
 
   <div class="footer-actions">
@@ -316,29 +318,24 @@
 </div>
 
 <script>
-  // ---------- DEFAULT DEBTS (India focused) ----------
-  let bosses = [
-    { id: "ccard", name: "💳 Credit Card Demon", balance: 75000, apr: 42, durationMonths: 0, emiPlan: null, defeated: false, originalApr: 42 },
-    { id: "personalloan", name: "🏦 Personal Loan Giant", balance: 350000, apr: 14, durationMonths: 24, emiPlan: null, defeated: false, originalApr: 14 },
-    { id: "carloan", name: "🚗 Car Loan Golem", balance: 600000, apr: 9.5, durationMonths: 60, emiPlan: null, defeated: false, originalApr: 9.5 },
-    { id: "goldloan", name: "✨ Gold Loan Djinn", balance: 120000, apr: 12, durationMonths: 12, emiPlan: null, defeated: false, originalApr: 12 },
-    { id: "eduloan", name: "📚 Education Loan Lich", balance: 500000, apr: 8, durationMonths: 120, emiPlan: null, defeated: false, originalApr: 8 }
-  ];
+  // ---------- EMPTY INITIAL STATE ----------
+  let bosses = [];               // No pre-entered debts
+  let customQuests = [];        // { id, name, reward }
+  let nextBossId = 1;
+  let nextQuestId = 1;
 
   let player = {
     savings: 0,
-    wallet: 5000,
+    wallet: 0,                  // starts empty
     totalPaidOff: 0,
     initiativeMultiplier: 1.0,
     initiativeRolledThisWeek: false,
-    spellsUsed: { cancel: false, fridge: false, gig: false, negotiateUsed: false },
+    spellsUsed: {},             // dynamic: key = questId
     scavengeUsed: false,
     paycheckCollected: false,
     level: 1,
     activeStrategy: "snowball"
   };
-
-  let nextId = 100;
 
   // Helper functions
   function totalRemainingDebt() {
@@ -382,7 +379,7 @@
     setTimeout(() => div.remove(), 2200);
   }
 
-  // Generic payment method: partial (custom amount)
+  // Payment methods
   function makePartialPayment(boss, amount) {
     if (amount <= 0) return false;
     if (amount > player.wallet) { showFloatyMsg("Not enough War Chest", true); return false; }
@@ -410,7 +407,6 @@
     return true;
   }
 
-  // Single settlement: pay full remaining balance
   function singleSettlement(boss) {
     if (boss.defeated) { showFloatyMsg("Already defeated", true); return; }
     let fullAmount = boss.balance;
@@ -431,7 +427,6 @@
     saveGame();
   }
 
-  // Setup EMI plan (monthly auto-pay each week)
   function setupEMI(boss) {
     if (boss.defeated) { showFloatyMsg("Cannot set EMI on defeated boss", true); return; }
     let emiAmount = parseFloat(prompt(`Enter weekly EMI amount for ${boss.name} (₹):\nThis amount will be deducted from War Chest every END WEEK until debt cleared.`, "2000"));
@@ -443,7 +438,6 @@
   }
 
   function processEMIPayments() {
-    let anyChange = false;
     for (let boss of bosses) {
       if (boss.defeated) continue;
       if (boss.emiPlan && boss.emiPlan.weeklyAmount > 0) {
@@ -456,22 +450,21 @@
         player.wallet -= payment;
         boss.balance = parseFloat((boss.balance - payment).toFixed(2));
         player.totalPaidOff += payment;
-        anyChange = true;
         if (boss.balance <= 0.01) {
           boss.defeated = true;
           boss.balance = 0;
           boss.emiPlan = null;
-          player.wallet += 300; // kill bonus
+          player.wallet += 300;
           showFloatyMsg(`💀 EMI cleared ${boss.name}! +₹300 bonus`);
         } else {
           showFloatyMsg(`🔄 EMI paid ₹${payment} on ${boss.name}. Remaining: ₹${boss.balance.toFixed(2)}`);
         }
       }
     }
-    if (anyChange) updateUI();
+    updateUI();
   }
 
-  // Add custom debt
+  // Custom debt addition
   function addCustomDebt() {
     let name = document.getElementById("debtName").value.trim();
     if (!name) name = "Custom Debt";
@@ -481,9 +474,8 @@
     if (isNaN(principal) || principal <= 0) { alert("Principal must be >0"); return; }
     if (isNaN(apr) || apr < 0) apr = 0;
     if (isNaN(duration)) duration = 0;
-    let newId = "custom_" + (nextId++);
     bosses.push({
-      id: newId,
+      id: "boss_" + (nextBossId++),
       name: name,
       balance: principal,
       apr: apr,
@@ -497,34 +489,37 @@
     saveGame();
   }
 
-  // Full reset to default debts (clears all custom and resets progress)
-  function fullReset() {
-    bosses = [
-      { id: "ccard", name: "💳 Credit Card Demon", balance: 75000, apr: 42, durationMonths: 0, emiPlan: null, defeated: false, originalApr: 42 },
-      { id: "personalloan", name: "🏦 Personal Loan Giant", balance: 350000, apr: 14, durationMonths: 24, emiPlan: null, defeated: false, originalApr: 14 },
-      { id: "carloan", name: "🚗 Car Loan Golem", balance: 600000, apr: 9.5, durationMonths: 60, emiPlan: null, defeated: false, originalApr: 9.5 },
-      { id: "goldloan", name: "✨ Gold Loan Djinn", balance: 120000, apr: 12, durationMonths: 12, emiPlan: null, defeated: false, originalApr: 12 },
-      { id: "eduloan", name: "📚 Education Loan Lich", balance: 500000, apr: 8, durationMonths: 120, emiPlan: null, defeated: false, originalApr: 8 }
-    ];
-    player = {
-      savings: 0,
-      wallet: 5000,
-      totalPaidOff: 0,
-      initiativeMultiplier: 1.0,
-      initiativeRolledThisWeek: false,
-      spellsUsed: { cancel: false, fridge: false, gig: false, negotiateUsed: false },
-      scavengeUsed: false,
-      paycheckCollected: false,
-      level: 1,
-      activeStrategy: player.activeStrategy || "snowball"
-    };
-    nextId = 100;
+  // Custom Side Quest
+  function addCustomQuest() {
+    let qname = prompt("Side quest name:", "Sell old laptop");
+    if (!qname) return;
+    let reward = parseFloat(prompt("Reward amount (₹):", "1500"));
+    if (isNaN(reward) || reward <= 0) return;
+    let qid = "quest_" + (nextQuestId++);
+    customQuests.push({ id: qid, name: qname, reward: reward });
+    // Initialize usage tracker for this quest if not exists
+    if (!player.spellsUsed) player.spellsUsed = {};
+    player.spellsUsed[qid] = false;
+    showFloatyMsg(`✨ New side quest added: "${qname}" (+₹${reward})`);
     updateUI();
     saveGame();
-    showFloatyMsg("✨ FULL RESET: Default debts restored, progress wiped.");
   }
 
-  // End week: interest + EMI
+  function useCustomQuest(questId) {
+    let quest = customQuests.find(q => q.id === questId);
+    if (!quest) return;
+    if (player.spellsUsed[questId]) {
+      alert(`Side quest "${quest.name}" already used this week! End week to refresh.`);
+      return;
+    }
+    player.wallet += quest.reward;
+    player.spellsUsed[questId] = true;
+    alert(`✨ Completed: ${quest.name}! +₹${quest.reward} added to War Chest.`);
+    updateUI();
+    saveGame();
+  }
+
+  // End week: interest + EMI + reset custom quest usage
   function endWeek() {
     let armorPct = getArmorReductionPercent();
     let totalInterest = 0;
@@ -538,17 +533,18 @@
       totalInterest += actual;
       boss.balance = parseFloat(boss.balance.toFixed(2));
     }
-    // Process EMI payments after interest accrual
     processEMIPayments();
 
-    // Reset weekly flags
+    // Reset weekly flags for spells
+    if (player.spellsUsed) {
+      Object.keys(player.spellsUsed).forEach(key => { player.spellsUsed[key] = false; });
+    }
     player.initiativeMultiplier = 1.0;
     player.initiativeRolledThisWeek = false;
-    player.spellsUsed = { cancel: false, fridge: false, gig: false, negotiateUsed: false };
     player.scavengeUsed = false;
     player.paycheckCollected = false;
 
-    alert(`⚡ WEEK ENDED.\nInterest added: ₹${totalInterest.toFixed(2)} (armor reduced ${armorPct}%)\nEMI auto-payments processed.\nSpells & initiative reset.`);
+    alert(`⚡ WEEK ENDED.\nInterest added: ₹${totalInterest.toFixed(2)} (armor reduced ${armorPct}%)\nEMI auto-payments processed.\nAll side quests & initiative reset.`);
     updateUI();
     saveGame();
   }
@@ -564,31 +560,8 @@
     saveGame();
   }
 
-  function castSpell(spell, gain) {
-    if (player.spellsUsed[spell]) { alert(`Spell "${spell}" already used this week.`); return; }
-    player.wallet += gain;
-    player.spellsUsed[spell] = true;
-    alert(`✨ +₹${gain} added to War Chest.`);
-    updateUI();
-    saveGame();
-  }
-
-  function negotiateApr() {
-    if (player.spellsUsed.negotiateUsed) { alert("Negotiate already used this week."); return; }
-    let sel = document.getElementById("negotiateBossSelect");
-    let bossId = sel.value;
-    let boss = bosses.find(b => b.id === bossId);
-    if (!boss || boss.defeated) { alert("Select active boss"); return; }
-    let newApr = Math.max(1, boss.apr - 2);
-    boss.apr = newApr;
-    player.spellsUsed.negotiateUsed = true;
-    alert(`🤝 ${boss.name} APR reduced to ${boss.apr}%!`);
-    updateUI();
-    saveGame();
-  }
-
   function getPaycheck() {
-    if (player.paycheckCollected) { alert("Paycheck already this week."); return; }
+    if (player.paycheckCollected) { alert("Payday already this week."); return; }
     player.wallet += 4000;
     player.paycheckCollected = true;
     alert("💵 +₹4000 credited to War Chest.");
@@ -602,6 +575,15 @@
     player.wallet += found;
     player.scavengeUsed = true;
     alert(`🔍 Scavenged ₹${found}!`);
+    updateUI();
+    saveGame();
+  }
+
+  function addCustomFunds() {
+    let amt = parseFloat(prompt("Enter custom amount to add to War Chest (₹):", "1000"));
+    if (isNaN(amt) || amt <= 0) return;
+    player.wallet += amt;
+    alert(`💸 ₹${amt} added to War Chest.`);
     updateUI();
     saveGame();
   }
@@ -628,7 +610,30 @@
     saveGame();
   }
 
-  // UI rendering
+  // Full reset: clear everything
+  function fullReset() {
+    bosses = [];
+    customQuests = [];
+    nextBossId = 1;
+    nextQuestId = 1;
+    player = {
+      savings: 0,
+      wallet: 0,
+      totalPaidOff: 0,
+      initiativeMultiplier: 1.0,
+      initiativeRolledThisWeek: false,
+      spellsUsed: {},
+      scavengeUsed: false,
+      paycheckCollected: false,
+      level: 1,
+      activeStrategy: player.activeStrategy || "snowball"
+    };
+    updateUI();
+    saveGame();
+    showFloatyMsg("🔥 COMPLETE RESET: All debts, side quests, and funds cleared.");
+  }
+
+  // UI rendering (empty states)
   function updateUI() {
     document.getElementById("totalHp").innerText = "₹" + totalRemainingDebt().toFixed(2);
     document.getElementById("totalPaid").innerText = "₹" + player.totalPaidOff.toFixed(2);
@@ -640,77 +645,85 @@
 
     const container = document.getElementById("bossListContainer");
     container.innerHTML = "";
-    const recommended = getRecommendedBoss();
+    if (bosses.length === 0) {
+      container.innerHTML = `<div class="empty-state">🏹 No debts tracked yet.<br>Use "ADD NEW PREY" above to start hunting your debts.</div>`;
+    } else {
+      const recommended = getRecommendedBoss();
+      bosses.forEach(boss => {
+        if (boss.defeated) {
+          const div = document.createElement("div");
+          div.className = "boss-card defeated";
+          div.innerHTML = `<div class="boss-name"><span>${boss.name}</span><span>💀 DEFEATED</span></div>`;
+          container.appendChild(div);
+          return;
+        }
+        const isRecommended = (recommended && recommended.id === boss.id);
+        const card = document.createElement("div");
+        card.className = "boss-card";
+        card.style.border = isRecommended ? "2px solid #ffc857" : "1px solid #2e3a4e";
+        let initialBal = boss.originalApr === 42 ? 75000 : (boss.originalApr === 14 ? 350000 : (boss.originalApr === 9.5 ? 600000 : (boss.originalApr === 12 ? 120000 : (boss.originalApr === 8 ? 500000 : boss.balance + 10000))));
+        const hpPercent = (boss.balance / (initialBal || boss.balance+1)) * 100;
+        const emiInfo = boss.emiPlan ? `<span class="emi-badge">📆 EMI: ₹${boss.emiPlan.weeklyAmount}/week</span>` : "";
+        card.innerHTML = `
+          <div class="boss-name">
+            <span>${boss.name}</span>
+            <span>❤️ ₹${boss.balance.toFixed(2)}</span>
+          </div>
+          <div class="hp-bar-bg"><div class="hp-fill" style="width: ${Math.min(100, hpPercent)}%;"></div></div>
+          <div class="interest-tag">⚔️ ${boss.apr}% APR | 📅 ${boss.durationMonths > 0 ? boss.durationMonths + " mo" : "flexible"}</div>
+          <div class="payment-methods">
+            <button class="settle-full-btn" data-id="${boss.id}">💰 ONE-TIME SETTLEMENT</button>
+            <button class="partial-pay-btn" data-id="${boss.id}">✂️ PART PAYMENT</button>
+            <button class="setup-emi-btn" data-id="${boss.id}">📆 MONTHLY EMI PLAN</button>
+            ${emiInfo}
+          </div>
+          <div class="attack-form" id="partial-input-${boss.id}" style="display: flex; gap: 6px; align-items: center;">
+            <input type="number" id="partialAmount_${boss.id}" placeholder="₹ amount" value="0" step="500" style="flex:1" class="attack-input">
+            <button class="primary pay-partial-confirm" data-id="${boss.id}">APPLY PART</button>
+          </div>
+          ${isRecommended ? '<div class="tooltip" style="color:#ffd966;">🎯 RECOMMENDED TARGET</div>' : ''}
+        `;
+        container.appendChild(card);
+      });
 
-    bosses.forEach(boss => {
-      if (boss.defeated) {
-        const div = document.createElement("div");
-        div.className = "boss-card defeated";
-        div.innerHTML = `<div class="boss-name"><span>${boss.name}</span><span>💀 DEFEATED</span></div>`;
-        container.appendChild(div);
-        return;
-      }
-      const isRecommended = (recommended && recommended.id === boss.id);
-      const card = document.createElement("div");
-      card.className = "boss-card";
-      card.style.border = isRecommended ? "2px solid #ffc857" : "1px solid #2e3a4e";
-      let initialBal = boss.originalApr === 42 ? 75000 : (boss.originalApr === 14 ? 350000 : (boss.originalApr === 9.5 ? 600000 : (boss.originalApr === 12 ? 120000 : (boss.originalApr === 8 ? 500000 : boss.balance + 10000))));
-      const hpPercent = (boss.balance / initialBal) * 100;
-      const emiInfo = boss.emiPlan ? `<span class="emi-badge">📆 EMI: ₹${boss.emiPlan.weeklyAmount}/week</span>` : "";
-      card.innerHTML = `
-        <div class="boss-name">
-          <span>${boss.name}</span>
-          <span>❤️ ₹${boss.balance.toFixed(2)}</span>
-        </div>
-        <div class="hp-bar-bg"><div class="hp-fill" style="width: ${Math.min(100, hpPercent)}%;"></div></div>
-        <div class="interest-tag">⚔️ ${boss.apr}% APR | 📅 ${boss.durationMonths > 0 ? boss.durationMonths + " mo" : "flexible"}</div>
-        <div class="payment-methods">
-          <button class="settle-full-btn" data-id="${boss.id}">💰 ONE-TIME SETTLEMENT</button>
-          <button class="partial-pay-btn" data-id="${boss.id}">✂️ PART PAYMENT</button>
-          <button class="setup-emi-btn" data-id="${boss.id}">📆 MONTHLY EMI PLAN</button>
-          ${emiInfo}
-        </div>
-        <div class="attack-form" id="partial-input-${boss.id}" style="display: flex; gap: 6px; align-items: center;">
-          <input type="number" id="partialAmount_${boss.id}" placeholder="₹ amount" value="0" step="500" style="flex:1" class="attack-input">
-          <button class="primary pay-partial-confirm" data-id="${boss.id}">APPLY PART</button>
-        </div>
-        ${isRecommended ? '<div class="tooltip" style="color:#ffd966;">🎯 RECOMMENDED TARGET</div>' : ''}
-      `;
-      container.appendChild(card);
-    });
+      // rebind dynamic buttons
+      document.querySelectorAll(".settle-full-btn").forEach(btn => {
+        btn.onclick = () => { let b = bosses.find(b => b.id === btn.dataset.id); if(b) singleSettlement(b); };
+      });
+      document.querySelectorAll(".setup-emi-btn").forEach(btn => {
+        btn.onclick = () => { let b = bosses.find(b => b.id === btn.dataset.id); if(b) setupEMI(b); };
+      });
+      document.querySelectorAll(".pay-partial-confirm").forEach(btn => {
+        btn.onclick = () => {
+          let boss = bosses.find(b => b.id === btn.dataset.id);
+          if(!boss) return;
+          let input = document.getElementById(`partialAmount_${btn.dataset.id}`);
+          let amt = parseFloat(input.value);
+          if (!isNaN(amt) && amt > 0) makePartialPayment(boss, amt);
+          else showFloatyMsg("Enter valid amount", true);
+          input.value = "0";
+          updateUI();
+          saveGame();
+        };
+      });
+    }
 
-    // rebind dynamic buttons
-    document.querySelectorAll(".settle-full-btn").forEach(btn => {
-      btn.onclick = () => { let b = bosses.find(b => b.id === btn.dataset.id); if(b) singleSettlement(b); };
-    });
-    document.querySelectorAll(".setup-emi-btn").forEach(btn => {
-      btn.onclick = () => { let b = bosses.find(b => b.id === btn.dataset.id); if(b) setupEMI(b); };
-    });
-    document.querySelectorAll(".pay-partial-confirm").forEach(btn => {
-      btn.onclick = () => {
-        let boss = bosses.find(b => b.id === btn.dataset.id);
-        if(!boss) return;
-        let input = document.getElementById(`partialAmount_${btn.dataset.id}`);
-        let amt = parseFloat(input.value);
-        if (!isNaN(amt) && amt > 0) makePartialPayment(boss, amt);
-        else showFloatyMsg("Enter valid amount", true);
-        input.value = "0";
-        updateUI();
-        saveGame();
-      };
-    });
-
-    // update negotiate dropdown
-    let select = document.getElementById("negotiateBossSelect");
-    select.innerHTML = "";
-    bosses.forEach(b => {
-      if (!b.defeated) {
-        let opt = document.createElement("option");
-        opt.value = b.id;
-        opt.innerText = `${b.name} (${b.apr}%)`;
-        select.appendChild(opt);
-      }
-    });
+    // Render custom side quests
+    const questsContainer = document.getElementById("customQuestsContainer");
+    questsContainer.innerHTML = "";
+    if (customQuests.length === 0) {
+      questsContainer.innerHTML = `<div class="tooltip" style="width:100%;">No side quests added. Click "ADD CUSTOM SIDE QUEST" to create your own spells (e.g., "Sell old phone +₹2000"). Each can be used once per week.</div>`;
+    } else {
+      customQuests.forEach(quest => {
+        const used = player.spellsUsed[quest.id] === true;
+        const btn = document.createElement("button");
+        btn.className = "custom-quest-btn";
+        btn.innerText = `${quest.name} (+₹${quest.reward}) ${used ? "✅ USED" : "⚡ AVAILABLE"}`;
+        btn.disabled = used;
+        btn.onclick = () => useCustomQuest(quest.id);
+        questsContainer.appendChild(btn);
+      });
+    }
   }
 
   function setStrategy(strat) {
@@ -723,19 +736,26 @@
   }
 
   function saveGame() {
-    const save = { bosses: bosses.map(b => ({ ...b, emiPlan: b.emiPlan ? { ...b.emiPlan } : null })), player: { ...player }, nextId };
-    localStorage.setItem("debtHunterSave", JSON.stringify(save));
+    const save = {
+      bosses: bosses.map(b => ({ ...b, emiPlan: b.emiPlan ? { ...b.emiPlan } : null })),
+      customQuests,
+      player: { ...player, spellsUsed: { ...player.spellsUsed } },
+      nextBossId, nextQuestId
+    };
+    localStorage.setItem("debtHunterEmpty", JSON.stringify(save));
   }
 
   function loadGame() {
-    const raw = localStorage.getItem("debtHunterSave");
+    const raw = localStorage.getItem("debtHunterEmpty");
     if (!raw) return false;
     try {
       const data = JSON.parse(raw);
       bosses = data.bosses.map(b => ({ ...b, emiPlan: b.emiPlan ? { ...b.emiPlan } : null }));
-      player = { ...data.player };
-      nextId = data.nextId || 100;
-      if (!player.spellsUsed) player.spellsUsed = { cancel: false, fridge: false, gig: false, negotiateUsed: false };
+      customQuests = data.customQuests || [];
+      player = { ...data.player, spellsUsed: data.player.spellsUsed || {} };
+      nextBossId = data.nextBossId || 1;
+      nextQuestId = data.nextQuestId || 1;
+      if (!player.spellsUsed) player.spellsUsed = {};
       return true;
     } catch(e) { return false; }
   }
@@ -743,15 +763,13 @@
   function bindEvents() {
     document.getElementById("receivePaycheckBtn").onclick = getPaycheck;
     document.getElementById("scavengeBtn").onclick = scavenge;
+    document.getElementById("addCustomFundsBtn").onclick = addCustomFunds;
     document.getElementById("rollInitiativeBtn").onclick = rollInitiative;
     document.getElementById("saveToArmorBtn").onclick = saveToArmor;
     document.getElementById("withdrawFromArmorBtn").onclick = withdrawFromArmor;
-    document.getElementById("spellCancelSub").onclick = () => castSpell("cancel", 300);
-    document.getElementById("spellFridge").onclick = () => castSpell("fridge", 500);
-    document.getElementById("spellGig").onclick = () => castSpell("gig", 1000);
-    document.getElementById("spellNegotiate").onclick = negotiateApr;
     document.getElementById("endWeekBtn").onclick = endWeek;
     document.getElementById("addDebtBtn").onclick = addCustomDebt;
+    document.getElementById("addCustomQuestBtn").onclick = addCustomQuest;
     document.getElementById("resetAllBtn").onclick = fullReset;
     document.getElementById("stratSnowball").onclick = () => setStrategy("snowball");
     document.getElementById("stratAvalanche").onclick = () => setStrategy("avalanche");
@@ -759,7 +777,17 @@
   }
 
   function init() {
-    if (!loadGame()) fullReset();
+    if (!loadGame()) {
+      // fresh start with absolutely nothing
+      bosses = [];
+      customQuests = [];
+      player = {
+        savings: 0, wallet: 0, totalPaidOff: 0, initiativeMultiplier: 1.0,
+        initiativeRolledThisWeek: false, spellsUsed: {}, scavengeUsed: false,
+        paycheckCollected: false, level: 1, activeStrategy: "snowball"
+      };
+      nextBossId = 1; nextQuestId = 1;
+    }
     bindEvents();
     setStrategy(player.activeStrategy);
     updateUI();
